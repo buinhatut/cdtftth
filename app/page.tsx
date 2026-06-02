@@ -321,26 +321,33 @@ export default function HomePage() {
     });
   }
 
-  async function handleCall(c: Customer) {
-    if (!user) return;
+async function handleCall(c: Customer) {
+  if (!user) return;
 
-    setMessage("");
+  setMessage("");
 
-    const data = await apiPost("logCall", {
-      account_key: c.account_key,
-      phone: c.phone,
-      updated_by: user.username,
-      username: user.username,
-      user,
+  const phone = String(c.phone || "").replace(/\s+/g, "");
+
+  // Mở cuộc gọi ngay để iPhone/Safari không chặn
+  window.location.href = `tel:${phone}`;
+
+  // Ghi log phía sau, không chờ API
+  apiPost("logCall", {
+    account_key: c.account_key,
+    phone: c.phone,
+    updated_by: user.username,
+    username: user.username,
+    user,
+  })
+    .then((data) => {
+      if (data.status !== "OK") {
+        setMessage(data.message || "Chưa đủ thời gian giữa 2 cuộc gọi");
+      }
+    })
+    .catch(() => {
+      setMessage("Không ghi được log cuộc gọi");
     });
-
-    if (data.status !== "OK") {
-      setMessage(data.message || "Chưa đủ thời gian giữa 2 cuộc gọi");
-      return;
-    }
-
-    window.location.href = `tel:${String(c.phone || "").replace(/\s+/g, "")}`;
-  }
+}
 
   async function saveUpdate() {
     if (!editing || !user) return;
@@ -606,7 +613,7 @@ export default function HomePage() {
                     </label>
                   </div>
 
-                  <div className="mt-2 max-w-xl text-xs text-slate-500">
+        <div className="mt-2 hidden max-w-xl text-xs text-slate-500 md:block">
                     Header CSV: account_key,vt_kv,cnkd_name,customer_name,phone,package_name,expire_date,prepaid_month,amount
                     {user.role === "VTKV" ? " · VTKV import sẽ tự gán về VTKV của tài khoản." : ""}
                   </div>
