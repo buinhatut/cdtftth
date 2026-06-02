@@ -163,29 +163,19 @@ function splitCSVLine(line: string) {
   return result;
 }
 
-
 function validateStrongPassword(password: string) {
-  if (!password || password.length < 8) {
-    return "Mật khẩu tối thiểu 8 ký tự";
-  }
-
-  if (!/[A-Z]/.test(password)) {
-    return "Mật khẩu phải có ít nhất 1 chữ in hoa";
-  }
-
-  if (!/[0-9]/.test(password)) {
-    return "Mật khẩu phải có ít nhất 1 chữ số";
-  }
-
+  if (!password || password.length < 8) return "Mật khẩu tối thiểu 8 ký tự";
+  if (!/[A-Z]/.test(password)) return "Mật khẩu phải có ít nhất 1 chữ in hoa";
+  if (!/[0-9]/.test(password)) return "Mật khẩu phải có ít nhất 1 chữ số";
   if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)) {
     return "Mật khẩu phải có ít nhất 1 ký tự đặc biệt";
   }
-
   return "";
 }
 
 export default function HomePage() {
   const [user, setUser] = useState<User | null>(null);
+  const [token, setToken] = useState<string>("");
 
   const [loginForm, setLoginForm] = useState({
     username: "",
@@ -208,6 +198,7 @@ export default function HomePage() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [importing, setImporting] = useState(false);
+  const [resetUsername, setResetUsername] = useState("");
 
   const [editing, setEditing] = useState<Customer | null>(null);
   const [updateForm, setUpdateForm] = useState({
@@ -222,6 +213,12 @@ export default function HomePage() {
 
   useEffect(() => {
     const saved = localStorage.getItem("cdt_user");
+    const savedToken = localStorage.getItem("cdt_token");
+
+    if (savedToken) {
+      setToken(savedToken);
+    }
+
     if (saved) {
       try {
         setUser(JSON.parse(saved));
@@ -248,7 +245,9 @@ export default function HomePage() {
     }
 
     setUser(data.user);
+    setToken(data.token || "");
     localStorage.setItem("cdt_user", JSON.stringify(data.user));
+    localStorage.setItem("cdt_token", data.token || "");
 
     setPasswordForm({
       old_password: loginForm.password,
@@ -258,18 +257,23 @@ export default function HomePage() {
   }
 
 
-  async function handleForgotPassword() {
-    const username = loginForm.username.trim();
+  async function handleAdminResetPassword() {
+    if (!user || !token) return;
 
-    if (!username) {
-      setMessage("Nhập username trước khi reset mật khẩu");
+    const target = resetUsername.trim();
+
+    if (!target) {
+      setMessage("Nhập username cần reset mật khẩu");
       return;
     }
 
     setLoading(true);
     setMessage("");
 
-    const data = await apiPost("forgotPassword", { username });
+    const data = await apiPost("adminResetPassword", {
+      token,
+      target_username: target,
+    });
 
     setLoading(false);
 
@@ -278,7 +282,8 @@ export default function HomePage() {
       return;
     }
 
-    setMessage(`Mật khẩu tạm: ${data.temp_password}. Đăng nhập lại và đổi mật khẩu mới.`);
+    setMessage(`Đã reset user ${data.username}. Mật khẩu tạm: ${data.temp_password}`);
+    setResetUsername("");
   }
 
   async function handleChangePassword() {
@@ -324,7 +329,7 @@ export default function HomePage() {
   async function loadDashboard() {
     if (!user) return;
 
-    const data = await apiPost("dashboard", { user });
+    const data = await apiPost("dashboard", { token });
     if (data.status === "OK") setDashboard(data.data);
   }
 
@@ -334,7 +339,7 @@ export default function HomePage() {
     setLoading(true);
 
     const data = await apiPost("getCustomers", {
-      user,
+      token,
       status: selectedStatus === "ALL" ? "" : selectedStatus,
       keyword,
     });
@@ -345,7 +350,7 @@ export default function HomePage() {
   }
 
   async function loadConfig() {
-    const data = await apiPost("getConfig");
+    const data = await apiPost("getConfig", { token });
 
     if (data.status === "OK") {
       setConfigStatus(data.config_status || []);
@@ -353,8 +358,14 @@ export default function HomePage() {
     }
   }
 
-  function logout() {
+  async function logout() {
+    if (token) {
+      apiPost("logout", { token }).catch(() => {});
+    }
+
     localStorage.removeItem("cdt_user");
+    localStorage.removeItem("cdt_token");
+    setToken("");
     setUser(null);
     setDashboard(null);
     setCustomers([]);
@@ -416,6 +427,7 @@ async function handleCall(c: Customer) {
     setMessage("");
 
     const data = await apiPost("updateCustomer", {
+      token,
       account_key: editing.account_key,
       ...updateForm,
       updated_by: user.username,
@@ -457,7 +469,7 @@ async function handleCall(c: Customer) {
       }
 
       const data = await apiPost("importCustomers", {
-        user,
+        token,
         rows,
       });
 
@@ -534,13 +546,9 @@ async function handleCall(c: Customer) {
               {loading ? "Đang đăng nhập..." : "Đăng nhập"}
             </button>
 
-            <button
-              onClick={handleForgotPassword}
-              disabled={loading}
-              className="w-full rounded-2xl bg-slate-100 py-3 text-sm font-bold text-blue-600 disabled:opacity-60"
-            >
-              Quên mật khẩu?
-            </button>
+            <div className="rounded-2xl bg-slate-50 p-3 text-center text-xs text-slate-500">
+              Quên mật khẩu? Liên hệ Admin VTKV/CN để được cấp lại mật khẩu tạm.
+            </div>
           </div>
         </div>
       </main>
@@ -687,6 +695,31 @@ async function handleCall(c: Customer) {
         <div className="mt-2 hidden max-w-xl text-xs text-slate-500 md:block">
                     Header CSV: account_key,vt_kv,cnkd_name,customer_name,phone,package_name,expire_date,prepaid_month,amount
                     {user.role === "VTKV" ? " · VTKV import sẽ tự gán về VTKV của tài khoản." : ""}
+                  </div>
+                </div>
+              )}
+
+              {user.role !== "CNKD" && (
+                <div className="mt-4 hidden rounded-2xl bg-slate-50 p-3 md:block">
+                  <div className="text-sm font-bold text-slate-700">Admin reset mật khẩu</div>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    <input
+                      className="min-w-0 flex-1 rounded-2xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-blue-500"
+                      placeholder="Username cần reset"
+                      value={resetUsername}
+                      onChange={(e) => setResetUsername(e.target.value)}
+                    />
+
+                    <button
+                      onClick={handleAdminResetPassword}
+                      disabled={loading}
+                      className="rounded-2xl bg-red-600 px-4 py-3 text-sm font-bold text-white disabled:opacity-60"
+                    >
+                      Reset mật khẩu
+                    </button>
+                  </div>
+                  <div className="mt-2 text-xs text-slate-500">
+                    CN reset được toàn bộ. VTKV chỉ reset user thuộc VTKV mình. CNKD không có quyền reset.
                   </div>
                 </div>
               )}
