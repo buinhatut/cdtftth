@@ -163,6 +163,27 @@ function splitCSVLine(line: string) {
   return result;
 }
 
+
+function validateStrongPassword(password: string) {
+  if (!password || password.length < 8) {
+    return "Mật khẩu tối thiểu 8 ký tự";
+  }
+
+  if (!/[A-Z]/.test(password)) {
+    return "Mật khẩu phải có ít nhất 1 chữ in hoa";
+  }
+
+  if (!/[0-9]/.test(password)) {
+    return "Mật khẩu phải có ít nhất 1 chữ số";
+  }
+
+  if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)) {
+    return "Mật khẩu phải có ít nhất 1 ký tự đặc biệt";
+  }
+
+  return "";
+}
+
 export default function HomePage() {
   const [user, setUser] = useState<User | null>(null);
 
@@ -236,11 +257,41 @@ export default function HomePage() {
     });
   }
 
+
+  async function handleForgotPassword() {
+    const username = loginForm.username.trim();
+
+    if (!username) {
+      setMessage("Nhập username trước khi reset mật khẩu");
+      return;
+    }
+
+    setLoading(true);
+    setMessage("");
+
+    const data = await apiPost("forgotPassword", { username });
+
+    setLoading(false);
+
+    if (data.status !== "OK") {
+      setMessage(data.message || "Reset mật khẩu lỗi");
+      return;
+    }
+
+    setMessage(`Mật khẩu tạm: ${data.temp_password}. Đăng nhập lại và đổi mật khẩu mới.`);
+  }
+
   async function handleChangePassword() {
     if (!user) return;
 
     if (passwordForm.new_password !== passwordForm.confirm_password) {
       setMessage("Mật khẩu mới nhập lại chưa khớp");
+      return;
+    }
+
+    const passError = validateStrongPassword(passwordForm.new_password);
+    if (passError) {
+      setMessage(passError);
       return;
     }
 
@@ -482,6 +533,14 @@ async function handleCall(c: Customer) {
             >
               {loading ? "Đang đăng nhập..." : "Đăng nhập"}
             </button>
+
+            <button
+              onClick={handleForgotPassword}
+              disabled={loading}
+              className="w-full rounded-2xl bg-slate-100 py-3 text-sm font-bold text-blue-600 disabled:opacity-60"
+            >
+              Quên mật khẩu?
+            </button>
           </div>
         </div>
       </main>
@@ -513,6 +572,10 @@ async function handleCall(c: Customer) {
               value={passwordForm.new_password}
               onChange={(e) => setPasswordForm({ ...passwordForm, new_password: e.target.value })}
             />
+
+            <div className="text-xs text-slate-500">
+              Mật khẩu tối thiểu 8 ký tự, có chữ IN HOA, số và ký tự đặc biệt.
+            </div>
 
             <input
               className="w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none focus:border-blue-500"
