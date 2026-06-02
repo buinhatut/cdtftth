@@ -591,7 +591,7 @@ async function handleCall(c: Customer) {
               <p className="text-sm text-slate-500">{customers.length} account</p>
 
               {user.role !== "CNKD" && (
-                <div className="mt-3">
+                <div className="mt-3 hidden md:block">
                   <div className="flex flex-wrap gap-2">
                     <a
                       href="/template/FTTH_CDT_Import_Template.csv"
