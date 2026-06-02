@@ -501,6 +501,14 @@ async function handleCall(c: Customer) {
             />
 
             {message && <div className="rounded-xl bg-red-50 p-3 text-sm text-red-600">{message}</div>}
+
+            <button
+              onClick={handleLogin}
+              disabled={loading}
+              className="w-full rounded-2xl bg-blue-600 py-3 font-bold text-white active:scale-[0.99] disabled:opacity-60"
+            >
+              {loading ? "Đang đăng nhập..." : "Đăng nhập"}
+            </button>
           </div>
         </div>
       </main>
