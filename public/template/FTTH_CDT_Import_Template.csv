@@ -1,0 +1,4 @@
+﻿account_key,vt_kv,cnkd_name,customer_name,phone,package_name,expire_date,prepaid_month,amount
+HNI000001,VTKV01,Nguyễn Văn A,Khách hàng mẫu 1,0980000001,SUN1,2026-06-15,12,1980000
+HNI000002,VTKV01,Nguyễn Văn A,Khách hàng mẫu 2,0980000002,STAR1,2026-06-20,6,990000
+HNI000003,VTKV02,Lê Văn C,Khách hàng mẫu 3,0980000003,SUN2,2026-06-30,12,2200000

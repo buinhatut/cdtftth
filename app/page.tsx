@@ -120,6 +120,49 @@ function formatDateVN(dateStr: any) {
   return d.toLocaleDateString("vi-VN");
 }
 
+function parseCSV(text: string) {
+  const lines = text.replace(/\r/g, "").split("\n").filter((x) => x.trim() !== "");
+  if (lines.length < 2) return [];
+
+  const headers = splitCSVLine(lines[0]).map((h) => h.trim());
+
+  return lines.slice(1).map((line) => {
+    const values = splitCSVLine(line).map((v) => v.trim());
+    const obj: any = {};
+    headers.forEach((h, i) => {
+      obj[h] = values[i] || "";
+    });
+    return obj;
+  });
+}
+
+function splitCSVLine(line: string) {
+  const result: string[] = [];
+  let current = "";
+  let inQuotes = false;
+
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+
+    if (ch === '"') {
+      if (inQuotes && line[i + 1] === '"') {
+        current += '"';
+        i++;
+      } else {
+        inQuotes = !inQuotes;
+      }
+    } else if (ch === "," && !inQuotes) {
+      result.push(current);
+      current = "";
+    } else {
+      current += ch;
+    }
+  }
+
+  result.push(current);
+  return result;
+}
+
 export default function HomePage() {
   const [user, setUser] = useState<User | null>(null);
 
@@ -143,6 +186,7 @@ export default function HomePage() {
   const [keyword, setKeyword] = useState("");
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
+  const [importing, setImporting] = useState(false);
 
   const [editing, setEditing] = useState<Customer | null>(null);
   const [updateForm, setUpdateForm] = useState({
@@ -280,11 +324,20 @@ export default function HomePage() {
   async function handleCall(c: Customer) {
     if (!user) return;
 
-    await apiPost("logCall", {
+    setMessage("");
+
+    const data = await apiPost("logCall", {
       account_key: c.account_key,
+      phone: c.phone,
       updated_by: user.username,
       username: user.username,
+      user,
     });
+
+    if (data.status !== "OK") {
+      setMessage(data.message || "Chưa đủ thời gian giữa 2 cuộc gọi");
+      return;
+    }
 
     window.location.href = `tel:${String(c.phone || "").replace(/\s+/g, "")}`;
   }
@@ -328,6 +381,53 @@ export default function HomePage() {
     setEditing(null);
     await loadDashboard();
     await loadCustomers();
+  }
+
+  async function handleImportFile(e: React.ChangeEvent<HTMLInputElement>) {
+    if (!user) return;
+
+    const file = e.target.files?.[0];
+    e.target.value = "";
+
+    if (!file) return;
+
+    setImporting(true);
+    setMessage("");
+
+    try {
+      const text = await file.text();
+      const rows = parseCSV(text);
+
+      if (rows.length === 0) {
+        setMessage("File CSV không có dữ liệu");
+        setImporting(false);
+        return;
+      }
+
+      const data = await apiPost("importCustomers", {
+        user,
+        rows,
+      });
+
+      setImporting(false);
+
+      if (data.status !== "OK") {
+        setMessage(data.message || "Import lỗi");
+        return;
+      }
+
+      let msg = `Import thành công: thêm mới ${data.inserted}, cập nhật ${data.updated}, lỗi ${data.error}`;
+      if (data.errors && data.errors.length > 0) {
+        msg += `. Lỗi mẫu: ${data.errors.join(" | ")}`;
+      }
+
+      setMessage(msg);
+      await loadDashboard();
+      await loadCustomers();
+    } catch (err: any) {
+      setImporting(false);
+      setMessage(err?.message || "Không đọc được file CSV");
+    }
   }
 
   const callResults = useMemo(() => {
@@ -478,10 +578,40 @@ export default function HomePage() {
         </div>
 
         <div className="mt-4 rounded-3xl bg-white p-4 shadow-sm">
-          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
             <div>
               <h2 className="text-base font-bold text-slate-900">{STATUS_LABEL[selectedStatus] || selectedStatus}</h2>
               <p className="text-sm text-slate-500">{customers.length} account</p>
+
+              {user.role !== "CNKD" && (
+                <div className="mt-3">
+                  <div className="flex flex-wrap gap-2">
+                    <a
+                      href="/template/FTTH_CDT_Import_Template.csv"
+                      download
+                      className="rounded-2xl bg-emerald-600 px-4 py-3 text-sm font-bold text-white active:scale-[0.99]"
+                    >
+                      Tải file mẫu
+                    </a>
+
+                    <label className="inline-flex cursor-pointer items-center rounded-2xl bg-slate-900 px-4 py-3 text-sm font-bold text-white active:scale-[0.99]">
+                      {importing ? "Đang import..." : "Import CSV"}
+                      <input
+                        type="file"
+                        accept=".csv"
+                        className="hidden"
+                        onChange={handleImportFile}
+                        disabled={importing}
+                      />
+                    </label>
+                  </div>
+
+                  <div className="mt-2 max-w-xl text-xs text-slate-500">
+                    Header CSV: account_key,vt_kv,cnkd_name,customer_name,phone,package_name,expire_date,prepaid_month,amount
+                    {user.role === "VTKV" ? " · VTKV import sẽ tự gán về VTKV của tài khoản." : ""}
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="flex gap-2">
@@ -501,7 +631,17 @@ export default function HomePage() {
             </div>
           </div>
 
-          {message && <div className="mt-3 rounded-2xl bg-green-50 p-3 text-sm font-semibold text-green-700">{message}</div>}
+          {message && (
+            <div
+              className={`mt-3 rounded-2xl p-3 text-sm font-semibold ${
+                message.includes("lỗi") || message.includes("chờ") || message.includes("thiếu") || message.includes("không")
+                  ? "bg-amber-50 text-amber-700"
+                  : "bg-green-50 text-green-700"
+              }`}
+            >
+              {message}
+            </div>
+          )}
 
           <div className="mt-4 space-y-3">
             {loading && <div className="rounded-2xl bg-slate-50 p-4 text-sm text-slate-500">Đang tải...</div>}
