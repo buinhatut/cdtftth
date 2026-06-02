@@ -566,41 +566,24 @@ async function handleCall(c: Customer) {
       </header>
 
       <section className="mx-auto max-w-6xl p-4">
-        {user.role !== "CNKD" && (
-  <div className="mb-4 grid grid-cols-2 gap-3 md:grid-cols-4">
-    <KpiCard
-      title="Tổng TB CĐT"
-      value={dashboard?.total || 0}
-      active={false}
-      onClick={() => setSelectedStatus("ALL")}
-    />
-
-    <KpiCard
-      title="Đã gọi"
-      value={(dashboard?.da_goi || 0) + (dashboard?.da_gia_han || 0) + (dashboard?.hen_goi_lai || 0) + (dashboard?.khong_lien_he || 0) + (dashboard?.tu_choi || 0) + (dashboard?.sai_so || 0)}
-      active={false}
-      onClick={() => setSelectedStatus("DA_GOI")}
-    />
-
-    <KpiCard
-      title="Đã gia hạn"
-      value={dashboard?.da_gia_han || 0}
-      active={false}
-      onClick={() => setSelectedStatus("DA_GIA_HAN")}
-    />
-
-    <KpiCard
-      title="Doanh thu gia hạn"
-      value={money(dashboard?.renewed_amount || 0)}
-      active={false}
-      onClick={() => setSelectedStatus("DA_GIA_HAN")}
-    />
-  </div>
-)}
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
           <KpiCard title="Tổng Account" value={dashboard?.total || 0} active={selectedStatus === "ALL"} onClick={() => setSelectedStatus("ALL")} />
           <KpiCard title="Chưa gọi" value={dashboard?.chua_goi || 0} active={selectedStatus === "CHUA_GOI"} onClick={() => setSelectedStatus("CHUA_GOI")} />
           <KpiCard title="Đã gọi" value={dashboard?.da_goi || 0} active={selectedStatus === "DA_GOI"} onClick={() => setSelectedStatus("DA_GOI")} />
+         <KpiCard  title="Tỷ lệ gọi"  value={pct(    (dashboard?.total || 0) === 0
+      ? 0
+      : (
+          (dashboard?.da_goi || 0) +
+          (dashboard?.da_gia_han || 0) +
+          (dashboard?.hen_goi_lai || 0) +
+          (dashboard?.khong_lien_he || 0) +
+          (dashboard?.tu_choi || 0) +
+          (dashboard?.sai_so || 0)
+        ) / (dashboard?.total || 1)
+  )}
+  active={false}
+  onClick={() => {}}
+/>
           <KpiCard title="Đã gia hạn" value={dashboard?.da_gia_han || 0} active={selectedStatus === "DA_GIA_HAN"} onClick={() => setSelectedStatus("DA_GIA_HAN")} />
           <KpiCard title="Hẹn gọi lại" value={dashboard?.hen_goi_lai || 0} active={selectedStatus === "HEN_GOI_LAI"} onClick={() => setSelectedStatus("HEN_GOI_LAI")} />
           <KpiCard title="Không liên hệ" value={dashboard?.khong_lien_he || 0} active={selectedStatus === "KHONG_LIEN_HE"} onClick={() => setSelectedStatus("KHONG_LIEN_HE")} />
