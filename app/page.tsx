@@ -387,18 +387,18 @@ async function loadCustomers() {
   }
 
 async function handleCall(c: Customer) {
-  if (!user) return;
+  if (!user || !token) return;
 
   setMessage("");
 
   const phone = String(c.phone || "").replace(/\s+/g, "");
 
   const data = await apiPost("logCall", {
+    token,
     account_key: c.account_key,
     phone: c.phone,
     updated_by: user.username,
     username: user.username,
-    user,
   });
 
   if (data.status !== "OK") {
