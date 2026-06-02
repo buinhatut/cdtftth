@@ -226,11 +226,11 @@ export default function HomePage() {
     }
   }, []);
 
-  useEffect(() => {
-    if (user && !mustChangePassword) {
-      loadAll();
-    }
-  }, [user, mustChangePassword, selectedStatus]);
+ useEffect(() => {
+  if (user && token && !mustChangePassword) {
+    loadAll();
+  }
+}, [user, token, mustChangePassword, selectedStatus]);
 
   async function handleLogin() {
     setLoading(true);
@@ -326,37 +326,40 @@ export default function HomePage() {
     await Promise.all([loadDashboard(), loadCustomers(), loadConfig()]);
   }
 
-  async function loadDashboard() {
-    if (!user) return;
+async function loadDashboard() {
+  if (!user || !token) return;
 
-    const data = await apiPost("dashboard", { token });
-    if (data.status === "OK") setDashboard(data.data);
+  const data = await apiPost("dashboard", { token });
+  if (data.status === "OK") setDashboard(data.data);
+  else setMessage(data.message || "Không tải được dashboard");
+}
+
+async function loadCustomers() {
+  if (!user || !token) return;
+
+  setLoading(true);
+
+  const data = await apiPost("getCustomers", {
+    token,
+    status: selectedStatus === "ALL" ? "" : selectedStatus,
+    keyword,
+  });
+
+  setLoading(false);
+
+  if (data.status === "OK") setCustomers(data.data || []);
+  else setMessage(data.message || "Không tải được danh sách");
+}
+ async function loadConfig() {
+  if (!token) return;
+
+  const data = await apiPost("getConfig", { token });
+
+  if (data.status === "OK") {
+    setConfigStatus(data.config_status || []);
+    setConfigReason(data.config_reason || []);
   }
-
-  async function loadCustomers() {
-    if (!user) return;
-
-    setLoading(true);
-
-    const data = await apiPost("getCustomers", {
-      token,
-      status: selectedStatus === "ALL" ? "" : selectedStatus,
-      keyword,
-    });
-
-    setLoading(false);
-
-    if (data.status === "OK") setCustomers(data.data || []);
-  }
-
-  async function loadConfig() {
-    const data = await apiPost("getConfig", { token });
-
-    if (data.status === "OK") {
-      setConfigStatus(data.config_status || []);
-      setConfigReason(data.config_reason || []);
-    }
-  }
+}
 
   async function logout() {
     if (token) {
