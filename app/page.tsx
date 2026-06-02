@@ -328,27 +328,21 @@ async function handleCall(c: Customer) {
 
   const phone = String(c.phone || "").replace(/\s+/g, "");
 
-  // Mở cuộc gọi ngay để iPhone/Safari không chặn
-  window.location.href = `tel:${phone}`;
-
-  // Ghi log phía sau, không chờ API
-  apiPost("logCall", {
+  const data = await apiPost("logCall", {
     account_key: c.account_key,
     phone: c.phone,
     updated_by: user.username,
     username: user.username,
     user,
-  })
-    .then((data) => {
-      if (data.status !== "OK") {
-        setMessage(data.message || "Chưa đủ thời gian giữa 2 cuộc gọi");
-      }
-    })
-    .catch(() => {
-      setMessage("Không ghi được log cuộc gọi");
-    });
-}
+  });
 
+  if (data.status !== "OK") {
+    setMessage(data.message || "Chưa đủ thời gian giữa 2 cuộc gọi");
+    return;
+  }
+
+  window.location.href = `tel:${phone}`;
+}
   async function saveUpdate() {
     if (!editing || !user) return;
 
