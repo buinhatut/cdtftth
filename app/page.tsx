@@ -236,25 +236,32 @@ export default function HomePage() {
   }, [user, mustChangePassword, selectedStatus]);
 
   async function handleLogin() {
+    if (loading) return;
+
     setLoading(true);
     setMessage("");
 
-    const data = await apiPost("login", loginForm);
-    setLoading(false);
+    try {
+      const data = await apiPost("login", loginForm);
 
-    if (data.status !== "OK") {
-      setMessage(data.message || "Đăng nhập lỗi");
-      return;
+      if (data.status !== "OK") {
+        setMessage(data.message || "Đăng nhập lỗi");
+        return;
+      }
+
+      setUser(data.user);
+      localStorage.setItem("cdt_user", JSON.stringify(data.user));
+
+      setPasswordForm({
+        old_password: loginForm.password,
+        new_password: "",
+        confirm_password: "",
+      });
+    } catch (err) {
+      setMessage("Không kết nối được API. Vui lòng thử lại.");
+    } finally {
+      setLoading(false);
     }
-
-    setUser(data.user);
-    localStorage.setItem("cdt_user", JSON.stringify(data.user));
-
-    setPasswordForm({
-      old_password: loginForm.password,
-      new_password: "",
-      confirm_password: "",
-    });
   }
 
   async function handleChangePassword() {
@@ -486,14 +493,14 @@ async function handleCall(c: Customer) {
 
           <div className="space-y-4">
             <input
-              className="w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none focus:border-blue-500"
+              className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-base outline-none focus:border-blue-500"
               placeholder="Username"
               value={loginForm.username}
               onChange={(e) => setLoginForm({ ...loginForm, username: e.target.value })}
             />
 
             <input
-              className="w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none focus:border-blue-500"
+              className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-base outline-none focus:border-blue-500"
               placeholder="Mật khẩu / PIN"
               type="password"
               value={loginForm.password}
@@ -503,9 +510,10 @@ async function handleCall(c: Customer) {
             {message && <div className="rounded-xl bg-red-50 p-3 text-sm text-red-600">{message}</div>}
 
             <button
+              type="button"
               onClick={handleLogin}
               disabled={loading}
-              className="w-full rounded-2xl bg-blue-600 py-3 font-bold text-white active:scale-[0.99] disabled:opacity-60"
+              className="w-full touch-manipulation rounded-2xl bg-blue-600 py-3 text-base font-bold text-white active:scale-[0.99] disabled:opacity-60"
             >
               {loading ? "Đang đăng nhập..." : "Đăng nhập"}
             </button>
